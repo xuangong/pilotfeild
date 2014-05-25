@@ -2,7 +2,9 @@
 #include <string.h>
 #include "sds.h"
 
+//init 一个initlen长度的sds
 sds sdsnewlen(const void *init, size_t initlen)
+/*{{{*/
 {
     struct sdshdr *sh;
 
@@ -23,31 +25,41 @@ sds sdsnewlen(const void *init, size_t initlen)
 
     return (char *)sh->buf;
 }
+/*}}}*/
 
 sds sdsnew(const char * init)
+/*{{{*/
 {
     size_t initlen = (init == NULL) ? 0 : strlen(init);
     return sdsnewlen(init, initlen);
 }
+/*}}}*/
 
 sds sdsempty()
+/*{{{*/
 {
     return sdsnewlen("", 0);
 }
+/*}}}*/
 
 sds sdsdup(const sds s)
+/*{{{*/
 {
     return sdsnewlen(s, sdslen(s));
 }
+/*}}}*/
 
 //释放内存的时候，一定要先检查是否是NULL
 void sdsfree(sds s)
+/*{{{*/
 {
     if(s == NULL) return;
     free(GET_SDSHDR_VOID(s));
 }
+/*}}}*/
 
 sds sdsMakeRoomFor(sds s, size_t addlen)
+/*{{{*/
 {
     struct sdshdr *sh, *newsh;
     size_t free = sdsavail(s);
@@ -76,9 +88,11 @@ sds sdsMakeRoomFor(sds s, size_t addlen)
     //在所以的sds操作中，return出来的是sds，不是sdshdr结构
     return newsh;
 }
+/*}}}*/
 
 //将sds扩展到len长度，free的部分用\0填充
 sds sdsgrowzero(sds s, size_t len)
+/*{{{*/
 {
     struct sdshdr *sh = GET_SDSHDR_VOID(s);
     size_t totlen, curlen = sh->len;
@@ -98,6 +112,73 @@ sds sdsgrowzero(sds s, size_t len)
     //如果改变了s，s对sh的相对偏移就改变了，应该return sh->buf
     return sh->buf;
 }
+/*}}}*/
+
+//把t按照len长度追加在sds后面
+sds sdscatlen(sds s, const void *t, size_t len)
+/*{{{*/
+{
+    struct sdshdr *sh;
+    size_t curlen = sdslen(s);
+
+    s = sdsMakeRoomFor(s, len);
+    if(s == NULL) return NULL;
+
+    memcpy(s+curlen, t, len);
+
+    sh = GET_SDSHDR_VOID(s);
+    sh->len = curlen + len;
+    //虽然free可能更大，但是这个是free的最小值，保证可用
+    sh->free = sh->free - len;
+
+    s[curlen + len] = '\0';
+    return s;
+}
+/*}}}*/
+
+sds sdscat(sds s, const void *t)
+/*{{{*/
+{
+    return sdscatlen(s, t, strlen(t));
+}
+/*}}}*/
+
+sds sdscatsds(sds s, const sds t)
+/*{{{*/
+{
+    return sdscatlen(s, t, sdslen(t));
+}
+/*}}}*/
+
+sds sdscpylen(sds s, const char *t, size_t len)
+/*{{{*/
+{
+    struct sdshdr *sh = GET_SDSHDR_VOID(s);
+
+    size_t totlen = sh->free + sh->len;
+    if(totlen < len)
+    {
+        sdsMakeRoomFor(s, len-sh->len);
+        if(s == NULL) return NULL;
+        sh = GET_SDSHDR_VOID(s);
+        totlen = sh->free + sh->len;
+    }
+
+    memcpy(s, t, len);
+    s[len] = '\0';
+    sh->len = len;
+    sh->free = totlen - len;
+
+    return s;
+}
+/*}}}*/
+
+sds sdscpy(sds s, const char *t)
+/*{{{*/
+{
+    return sdscpylen(sds s, const char *t, strlen(t));
+}
+/*}}}*/
 
 int main(int argc, char const *argv[])
 {
