@@ -1,4 +1,4 @@
 pilotfeild
 ==========
 
-I will imitate some data structure of redis, then try to remake a private version code.
+I will imitate some data structures of redis, then try to remake a private version code.
