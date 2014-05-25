@@ -1,4 +1,4 @@
 pilotfeild
 ==========
 
-This is my pilotfeildLib of c/c++
+I will imitate some data structure of redis, then try to remake a private version code.
