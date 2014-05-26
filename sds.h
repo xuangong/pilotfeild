@@ -13,7 +13,8 @@ struct sdshdr{
     int len;
     int free;
     //这就是个占位符
-    char buf[1];
+    //c98不支持这种写法，就写一个char[1]，但是相应的内存模型也会改变
+    char buf[0];
 };
 
 static inline size_t sdslen(const sds s)
@@ -43,9 +44,10 @@ sds sdsMakeRoomFor(sds s, size_t addlen);
 sds sdsgrowzero(sds s, size_t len);
 sds sdscatlen(sds s, const void *t, size_t len);
 sds sdscat(sds s, const void *t);
-sds sdscatsds(sds t, const sds t);
+sds sdscatsds(sds s, const sds t);
 sds sdscpylen(sds s, const char *t, size_t len);
 sds sdscpy(sds s, const char *t);
-
+sds sdscatvprintf(sds s, const char *fmt, va_list ap);
+sds sdscatprintf(sds s, const char *fmt, ...);
 
 #endif

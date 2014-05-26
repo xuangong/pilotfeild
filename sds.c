@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include "sds.h"
 
@@ -6,7 +7,7 @@
 sds sdsnewlen(const void *init, size_t initlen)
 /*{{{*/
 {
-    struct sdshdr *sh;
+    struct sdshdr *sh = NULL;
 
     if(init)
     {
@@ -61,6 +62,7 @@ void sdsfree(sds s)
 sds sdsMakeRoomFor(sds s, size_t addlen)
 /*{{{*/
 {
+    printf("s's address is %x\n", s);
     struct sdshdr *sh, *newsh;
     size_t free = sdsavail(s);
     size_t len, newlen;
@@ -77,7 +79,10 @@ sds sdsMakeRoomFor(sds s, size_t addlen)
     else
         newlen += SDS_MAX_PREALLOC;
 
+    //realloc返回值可能和sh不一样，如果需要分配空间，会把内存拷贝过去以后
+    //把原来的sh开始的空间释放掉
     newsh = realloc(sh, sizeof(struct sdshdr)+newlen+1);
+    printf("newsh's address is %x\n", newsh->buf);
     if(newsh == NULL) return NULL;
 
     //len-->原来已经用的大小
@@ -86,7 +91,7 @@ sds sdsMakeRoomFor(sds s, size_t addlen)
 
     //realloc来的newsh，所以newsh->len不用改
     //在所以的sds操作中，return出来的是sds，不是sdshdr结构
-    return newsh;
+    return newsh->buf;
 }
 /*}}}*/
 
@@ -158,7 +163,7 @@ sds sdscpylen(sds s, const char *t, size_t len)
     size_t totlen = sh->free + sh->len;
     if(totlen < len)
     {
-        sdsMakeRoomFor(s, len-sh->len);
+        s = sdsMakeRoomFor(s, len-sh->len);
         if(s == NULL) return NULL;
         sh = GET_SDSHDR_VOID(s);
         totlen = sh->free + sh->len;
@@ -176,11 +181,71 @@ sds sdscpylen(sds s, const char *t, size_t len)
 sds sdscpy(sds s, const char *t)
 /*{{{*/
 {
-    return sdscpylen(sds s, const char *t, strlen(t));
+    return sdscpylen(s, t, strlen(t));
+}
+/*}}}*/
+
+sds sdscatvprintf(sds s, const char *fmt, va_list ap)
+/*{{{*/
+{
+    va_list cpy;
+    char *buf, *t;
+    size_t buflen = 16;
+
+    while(1)
+    {
+        buf = malloc(buflen);
+        if(buf == NULL) return NULL;
+        buf[buflen - 2] = '\0';
+        va_copy(cpy, ap);
+        vsnprintf(buf, buflen, fmt, cpy);
+        if(buf[buflen-2] != '\0')
+        {
+            free(buf);
+            buflen *= 2;
+            continue;
+        }
+        break;
+    }
+    t = sdscat(s, buf);
+    free(buf);
+    return t;
+}
+/*}}}*/
+
+sds sdscatprintf(sds s, const char *fmt, ...)
+/*{{{*/
+{
+    va_list ap;
+    char *t;
+    va_start(ap, fmt);
+    t = sdscatvprintf(s, fmt, ap);
+    va_end(ap);
+    return t;
 }
 /*}}}*/
 
 int main(int argc, char const *argv[])
 {
+    struct sdshdr *sh;
+    sds x = sdsnew("foo"), y;
+    printf("x is %s\n", x);
+    y = sdsdup(x);
+    sdsfree(x);
+    printf("y is %s\n", y);
+    printf("y's length is %d\n", sdslen(y));
+
+    printf("y's value is %x\n", y);
+    y = sdscpy(y, "concat after here");
+    printf("y's length is %d\n", sdslen(y));
+    printf("y's free is %d\n", sdsavail(y));
+    printf("y's value is %x\n", y);
+    printf("y is turned to be \"%s\"\n", y);
+
+    y = sdscat(y, "concat");
+    printf("y is turned to be \"%s\"\n", y);
+
+    sdsfree(y);
+
     return 0;
 }
