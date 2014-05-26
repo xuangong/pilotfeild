@@ -59,6 +59,8 @@ void sdsfree(sds s)
 }
 /*}}}*/
 
+//传入的s有可能会被释放
+//推荐用法，s = sdsMakeRoomFor(s, len);
 sds sdsMakeRoomFor(sds s, size_t addlen)
 /*{{{*/
 {
@@ -223,6 +225,67 @@ sds sdscatprintf(sds s, const char *fmt, ...)
     va_end(ap);
     return t;
 }
+/*}}}*/
+
+sds sdstrim(sds s, const char *cset)
+/*{{{*/
+{
+    struct sdshdr *sh = GET_SDSHDR_VOID(s);
+    char *start, *end, *sp, *ep;
+    size_t len;
+
+    sp = start = s;
+    ep = end = s + sdslen(s) - 1;
+    while(sp <= end && strchr(cset, *sp))
+        sp++;
+    while(ep > start && strchr(cset, *ep))
+        ep--;
+    len = (sp > ep) ? 0 : ((ep - sp) + 1);
+    //memmove ( memcpy在2、3情况下抛错误码 )
+    //1.源地址和目的地址相等==>无任何拷贝
+    //2.源地址大于目的地址==>正向拷贝
+    //3.源地址小于目标地址==>反向拷贝
+    //注意堆的生长方向是向增大的方向进行的(和栈相反,当然内存单元的组织还是由低到高)
+    if(sh->buf != sp) memmove(sh->buf, sp, len);
+    sh->buf[len] = '\0';
+    sh->free = sh->free + (sh->len - len);
+    sh->len = len;
+    return s;
+}
+/*}}}*/
+
+sds sdsrange(sds s, int start, int end)
+/*{{{*/
+{
+    struct sdshdr *sh = GET_SDSHDR_VOID(s);
+    size_t newlen, len = sdslen(s);
+
+    if(len == 0) return s;
+    if(start < 0)
+    {
+        start = len + start;
+        if(start < 0) start = 0;
+    }
+    newlen = (start > end) ? 0 : (end - start) + 1;
+    if(newlen != 0)
+    {
+        if(start >= (signed)len)
+            newlen = 0;
+        else if(end >= (signed)len)
+        {
+            end = len - 1;
+            newlen = (start > end) ? 0 : (end - start) + 1;
+        }
+    }
+    else
+        start = 0;
+    if(start && newlen) memmove(sh->buf, sh->buf+start, newlen);
+    sh->buf[newlen] = 0;
+    sh->free = sh->free + (sh->len - newlen);
+    sh->len = newlen;
+    return s;
+}
+
 /*}}}*/
 
 int main(int argc, char const *argv[])

@@ -49,5 +49,7 @@ sds sdscpylen(sds s, const char *t, size_t len);
 sds sdscpy(sds s, const char *t);
 sds sdscatvprintf(sds s, const char *fmt, va_list ap);
 sds sdscatprintf(sds s, const char *fmt, ...);
+sds sdstrim(sds s, const char *cset);
+sds sdsrange(sds s, int start, int end);
 
 #endif
